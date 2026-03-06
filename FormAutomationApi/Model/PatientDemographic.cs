@@ -1,5 +1,10 @@
-﻿public class PatientDemographic
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+public class PatientDemographic
 {
+    [Key]                                           // ✅ PK
+    [ForeignKey("Patient")]
     public int PatientId { get; set; }                // INT, FK to Patient
 
     public string? Language { get; set; }             // VARCHAR(60), NULL

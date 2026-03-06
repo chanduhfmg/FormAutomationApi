@@ -1,5 +1,8 @@
-﻿public class UnableToObtainSignature
+﻿using System.ComponentModel.DataAnnotations;
+
+public class UnableToObtainSignature
 {
+    [Key]
     public int UnableId { get; set; }                   // INT, AUTO_INCREMENT, PK
 
     public int SignedDocumentId { get; set; }           // INT, FK to SignedDocument, Not Null

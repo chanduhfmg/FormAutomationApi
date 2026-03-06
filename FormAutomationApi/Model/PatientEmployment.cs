@@ -1,7 +1,12 @@
-﻿public class PatientEmployment
-{
-    public int PatientEmploymentId { get; set; }      // INT, AUTO_INCREMENT, PK
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
+public class PatientEmployment
+{
+    [Key]
+    public int PatientEmploymentId { get; set; }      // INT, AUTO_INCREMENT, PK
+   
+    [ForeignKey("PatientId")]
     public int PatientId { get; set; }                // INT, FK to Patient
 
     public string? EmployerName { get; set; }         // VARCHAR(120), NULL

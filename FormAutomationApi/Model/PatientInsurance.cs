@@ -1,9 +1,11 @@
 ﻿using FormAutomationApi.Model;
+using System.ComponentModel.DataAnnotations;
 
 public class PatientInsurance
 {
+    [Key]
     public int PatientInsuranceId { get; set; }         // INT, AUTO_INCREMENT, PK
-
+    
     public int PatientId { get; set; }                  // INT, FK to Patient, Not Null
 
     public int? InsurancePlanId { get; set; }           // INT, FK to InsurancePlan, NULL

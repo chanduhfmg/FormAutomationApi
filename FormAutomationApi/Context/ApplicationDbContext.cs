@@ -65,7 +65,7 @@ namespace FormAutomationApi.Context
 
             modelBuilder.Entity<PatientEmployment>().ToTable("patientemployment");
 
-            modelBuilder.Entity<PatientInsurance>().ToTable("insuranceplan");
+            modelBuilder.Entity<PatientInsurance>().ToTable("patientinsurance");
 
             modelBuilder.Entity<PatientOffice>().ToTable("patientoffice");
 
