@@ -1,7 +1,13 @@
-﻿public class SignedDocumentResponse
-{
-    public int ResponseId { get; set; }                 // INT, AUTO_INCREMENT, PK
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
+public class SignedDocumentResponse
+{
+    // INT, AUTO_INCREMENT, PK
+    [Key]
+    public int ResponseId { get; set; }   
+    
+    [ForeignKey("SignedDocumentId")]
     public int SignedDocumentId { get; set; }           // INT, FK to SignedDocument, Not Null
 
     public string QuestionCode { get; set; }            // VARCHAR(80), Not Null, No default

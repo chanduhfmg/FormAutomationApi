@@ -1,13 +1,16 @@
-﻿namespace FormAutomationApi.Model
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace FormAutomationApi.Model
 {
     public class InsurancePlan
     {
-        public int HippaFamilyMemberId {  get; set; }
+        [Key]
+        public int InsurancePlanId {  get; set; }
 
-        public int SignedDocumentId {  get; set; }
+        public string PlanName {  get; set; }
 
-        public string FamilyMemberName {  get; set; }
+        public string PayerName {  get; set; }
 
-        public string Relationship {  get; set; }
+        public string Notes {  get; set; }
     }
 }
