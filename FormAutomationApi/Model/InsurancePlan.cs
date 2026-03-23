@@ -11,6 +11,6 @@ namespace FormAutomationApi.Model
 
         public string PayerName {  get; set; }
 
-        public string Notes {  get; set; }
+        public string? Notes {  get; set; }
     }
 }

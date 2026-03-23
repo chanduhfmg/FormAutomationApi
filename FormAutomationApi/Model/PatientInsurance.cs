@@ -20,7 +20,7 @@ public class PatientInsurance
 
     public DateOnly? SubscriberDOB { get; set; }        // DATE, NULL
 
-    public string? RelationshipType { get; set; }       // VARCHAR(40), NULL (RelationshipT...)
+    public string? RelationshipToPatient { get; set; }       // VARCHAR(40), NULL (RelationshipT...)
 
     public bool IsActive { get; set; } = true;          // TINYINT(1), default '1'
 
