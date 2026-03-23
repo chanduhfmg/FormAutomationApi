@@ -17,7 +17,7 @@ namespace FormAutomationApi.Context
 
         public DbSet<EmergencyContact> EmergencyContacts { get; set; }
 
-        public DbSet<HippaFamilyMember> HippaFamilyMembers { get; set; }    
+        public DbSet<HipaaFamilyMember> HipaaFamilyMembers { get; set; }    
 
         public DbSet<InsurancePlan> InsurancePlans { get; set; }   
         public DbSet<IntakePacket> IntakePackets { get; set; }
@@ -40,7 +40,9 @@ namespace FormAutomationApi.Context
 
         public DbSet<SignedDocumentResponse> SignedDocumentsResponse { get; set; }  
 
-        public DbSet<UnableToObtainSignature> unableToObtainSignatures { get; set; }    
+        public DbSet<UnableToObtainSignature> UnableToObtainSignatures { get; set; }    
+
+        public DbSet<PatientInsurance> PatientInsurances { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Patient>().ToTable("patient");
@@ -51,7 +53,7 @@ namespace FormAutomationApi.Context
 
             modelBuilder.Entity<EmergencyContact>().ToTable("emergencycontact");
 
-            modelBuilder.Entity<HippaFamilyMember>().ToTable("hippafamilymember");
+            modelBuilder.Entity<HipaaFamilyMember>().ToTable("hipaafamilymember");
 
             modelBuilder.Entity<InsurancePlan>().ToTable("insuranceplan");
 
@@ -69,7 +71,7 @@ namespace FormAutomationApi.Context
 
             modelBuilder.Entity<PatientOffice>().ToTable("patientoffice");
 
-            modelBuilder.Entity<PatientPharmacy>().ToTable("patientpharamcy");
+            modelBuilder.Entity<PatientPharmacy>().ToTable("patientpharmacy");
 
             modelBuilder.Entity<PatientProvider>().ToTable("patientprovider");
 
