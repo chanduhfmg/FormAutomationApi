@@ -2,14 +2,14 @@ using FormAutomationApi.Context;
 using FormAutomationApi.Model;
 using FormAutomationApi.Services;
 using Microsoft.EntityFrameworkCore;
+using DotNetEnv;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+DotNetEnv.Env.Load();
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-
-builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
@@ -37,7 +37,7 @@ builder.Services.AddCors(options =>
         .AllowAnyMethod();
     });
 });
-
+builder.Services.AddSingleton<TwilioService>();
 var app = builder.Build();
 
 
@@ -50,7 +50,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 app.UseCors("AllowReactApp");
 

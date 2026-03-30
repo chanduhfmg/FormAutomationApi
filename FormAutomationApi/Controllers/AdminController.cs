@@ -14,10 +14,13 @@ namespace FormAutomationApi.Controllers
 
         private readonly ApplicationDbContext _context;
         private readonly ITokenService _tokenService;
+        private readonly TwilioService _twilioService;
 
-        public AdminController(ApplicationDbContext context , ITokenService tokenService) { 
+
+        public AdminController(ApplicationDbContext context , ITokenService tokenService,TwilioService twilioService) { 
             _context = context; 
             _tokenService = tokenService;
+            _twilioService = twilioService;
         }
 
         [HttpGet]
@@ -45,10 +48,17 @@ namespace FormAutomationApi.Controllers
             return Ok(new { token, expiresAt });
         }
 
-        // get details from session to patient
-
-
-        //
+        //adding the twilio service
+        [HttpPost("twilio-send")]
+        public async Task<IActionResult> SendSms([FromBody] SendForm request)
+        {
+            if (string.IsNullOrEmpty(request.Phone) || string.IsNullOrEmpty(request.FormLink))
+            {
+                return BadRequest("Phone or FormLink missing");
+            }
+            var sent=await _twilioService.SendFormLink(request.Phone, request.FormLink);
+            return Ok(new { message = "SMS sent successfully",sent });
+        }
     }
 }
 
@@ -56,5 +66,5 @@ public interface RequestSessionBody
 {
     public int patientId { get; set; }
 
-    public string formlabel { get; set; }
+    public string formlabel { get; set; }   
 }
