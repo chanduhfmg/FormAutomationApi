@@ -12,8 +12,8 @@
 
     public bool IsPreferred { get; set; } = true;       // TINYINT(1), Not Null, default '1'
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;  // DATETIME, CURRENT_TIMESTAMP
+    public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;  // DATETIME, CURRENT_TIMESTAMP
 
     // Navigation property
-    public Patient Patient { get; set; }
+    public Patient? Patient { get; set; }
 }

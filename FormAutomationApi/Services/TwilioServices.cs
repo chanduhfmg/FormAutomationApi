@@ -2,6 +2,8 @@
 using Twilio.Rest.Api.V2010.Account;
 using Twilio.Types;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http.HttpResults;
 
 public class TwilioService
 {
@@ -19,7 +21,7 @@ public class TwilioService
     }
 
     // ✅ MAIN METHOD (your requirement)
-    public async Task SendFormLink(string phoneNumber, string formUrl)
+    public async Task<string> SendFormLink(string phoneNumber, string formUrl)
     {
         if (string.IsNullOrEmpty(phoneNumber))
             throw new Exception("Phone number is required");
@@ -36,6 +38,8 @@ public class TwilioService
             Body = messageBody
         };
 
-        await MessageResource.CreateAsync(options);
+       var message= await MessageResource.CreateAsync(options);
+        return message.Sid ;
+
     }
 }

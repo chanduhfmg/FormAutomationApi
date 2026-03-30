@@ -16,5 +16,5 @@ public class PatientDemographic
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;  // DATETIME, CURRENT_TIMESTAMP
 
     // Navigation property
-    public Patient Patient { get; set; }
+    public Patient? Patient { get; set; }
 }

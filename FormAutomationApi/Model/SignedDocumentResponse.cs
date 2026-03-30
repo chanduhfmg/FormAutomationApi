@@ -23,5 +23,5 @@ public class SignedDocumentResponse
     public string? ChoiceValue { get; set; }            // VARCHAR(120), NULL
 
     // Navigation property
-    public SignedDocument SignedDocument { get; set; }
+    public SignedDocument? SignedDocument { get; set; }
 }

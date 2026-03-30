@@ -24,9 +24,9 @@ public class PatientInsurance
 
     public bool IsActive { get; set; } = true;          // TINYINT(1), default '1'
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;  // DATETIME, CURRENT_TIMESTAMP
+    public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;  // DATETIME, CURRENT_TIMESTAMP
 
     // Navigation properties
-    public Patient Patient { get; set; }
+    public Patient? Patient { get; set; }
     public InsurancePlan? InsurancePlan { get; set; }
 }

@@ -33,9 +33,11 @@ namespace FormAutomationApi.Controllers
                 if (body == null)
                     return BadRequest("Body is null");
 
+                Console.WriteLine(body);
+
                 var document = new DocumentVersion
                 {
-                    DocumentTypeId = body.DocummentTypeId,
+                    DocumentTypeId = body.DocumentTypeId,
                     VersionLabel = body.VersionLabel,
                     RetiredDate = body.RetiredDate,
                     TemplatePath = body.TemplatePath
@@ -58,7 +60,7 @@ namespace FormAutomationApi.Controllers
 {
     public string VersionLabel { get; set; }
 
-    public int DocummentTypeId { get; set; }
+    public int DocumentTypeId { get; set; }
 
     public DateTime? EffectiveDate { get; set; }
     public DateTime? RetiredDate { get; set; }

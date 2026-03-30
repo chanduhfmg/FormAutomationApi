@@ -13,6 +13,6 @@
     public bool? Active { get; set; } = true;           // TINYINT(1), NULL, default '1'
 
     // Navigation properties
-    public Patient Patient { get; set; }
-    public Office Office { get; set; }
+    public Patient? Patient { get; set; }
+    public Office? Office { get; set; }
 }

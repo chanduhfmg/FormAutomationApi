@@ -15,8 +15,8 @@ public class PatientEmployment
 
     public string? EmployerAddress { get; set; }      // VARCHAR(200), NULL (EmployerAddr...)
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;  // DATETIME, CURRENT_TIMESTAMP
+    public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;  // DATETIME, CURRENT_TIMESTAMP
 
     // Navigation property
-    public Patient Patient { get; set; }
+    public Patient? Patient { get; set; }
 }
