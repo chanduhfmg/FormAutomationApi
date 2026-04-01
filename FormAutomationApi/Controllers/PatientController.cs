@@ -22,18 +22,18 @@ namespace FormAutomationApi.Controllers
         {
 
             var patient = await _db.Patients.FirstOrDefaultAsync(p => p.PatientId == id);
+
+            if (patient == null) return NotFound();
             var patientid = patient?.PatientId;
-            //Console.Write($"this is the patinet{patient?.PatientId}");
+            
             var emergency = await _db.EmergencyContacts.FirstOrDefaultAsync(p => p.PatientId == patientid);
-            //Console.Write($"this is the patinet{emergency}");
-            var insurance = await _db.InsurancePlans.FirstOrDefaultAsync(p => p.InsurancePlanId == patientid);
-            //Console.Write($"this is the patinet{emergency}");
+            
             var hippa = await _db.HipaaFamilyMembers
      .Where(p => p.HipaaFamilyMemberId == patientid)
      .ToListAsync();
 
             //pharmacy
-            var pharmacy = await _db.PatientPharmacies.FirstOrDefaultAsync(p => p.PatientPharmacyId == patientid);
+            var pharmacy = await _db.PatientPharmacies.FirstOrDefaultAsync(p => p.PatientId == patientid);
 
             //demographics
             var demographics = await _db.PatientDemographics.FirstOrDefaultAsync(p => p.PatientId == patientid);
@@ -45,7 +45,31 @@ namespace FormAutomationApi.Controllers
             //patientinsurance
             var patientInsurance = await _db.PatientInsurances.FirstOrDefaultAsync(p => p.PatientId == patientid);
 
+            var insurancePlanId = patientInsurance?.InsurancePlanId;
 
+            var insurance = await _db.InsurancePlans.FirstOrDefaultAsync(p => p.InsurancePlanId == insurancePlanId);
+
+            var intakePacket = await _db.IntakePackets.FirstOrDefaultAsync(p => p.PatientId == patientid);
+
+            var intakePacketId = intakePacket?.IntakePacketId;
+
+            var signedDocuments = await _db.SignedDocuments.FirstOrDefaultAsync(p => p.IntakePacketId == intakePacketId);
+
+            var signedDocumentId = signedDocuments.SignedDocumentId;
+
+            var signedDocumentResponse = await _db.SignedDocumentResponse.Where(p => p.SignedDocumentId == signedDocumentId).ToListAsync();
+
+            var patientoffice = await _db.PatientOffices.FirstOrDefaultAsync(p => p.PatientId == patientid);
+
+            var officeid = patientoffice.OfficeId;
+
+            var office = await _db.Offices.FirstOrDefaultAsync(p => p.OfficeId == officeid);
+
+            var patientProvider = await _db.patientProviders.FirstOrDefaultAsync(p => p.PatientId == patientid);
+
+            var unableToObtain = await _db.UnableToObtainSignatures.FirstOrDefaultAsync(p => p.SignedDocumentId == signedDocumentId);
+
+         
             if (patient == null)
                 return NotFound();
             var obj = new
@@ -57,7 +81,14 @@ namespace FormAutomationApi.Controllers
                 pharmacy,
                 demographics,
                 employer,
-                patientInsurance
+                patientInsurance,
+                intakePacket,
+                signedDocuments,
+                signedDocumentResponse,
+                patientoffice,
+                office,
+                patientProvider,
+                unableToObtain
 
 
             };
@@ -523,16 +554,33 @@ namespace FormAutomationApi.Controllers
         {
             foreach (var dto in responses)
             {
-                _db.SignedDocumentResponse.Add(new SignedDocumentResponse
+                var existing = await _db.SignedDocumentResponse
+                    .FirstOrDefaultAsync(x =>
+                        x.SignedDocumentId == signedDocumentId &&
+                        x.QuestionCode == dto.QuestionCode);
+
+                if (existing != null)
                 {
-                    SignedDocumentId = signedDocumentId,
-                    QuestionCode = dto.QuestionCode,
-                    ResponseType = dto.ResponseType,
-                    BoolValue = dto.BoolValue,
-                    TextValue = dto.TextValue,
-                    DateValue = dto.DateValue,
-                    ChoiceValue = dto.ChoiceValue
-                });
+                    // ✅ UPDATE
+                    existing.BoolValue = dto.BoolValue;
+                    existing.TextValue = dto.TextValue;
+                    existing.ChoiceValue = dto.ChoiceValue;
+                    existing.DateValue = dto.DateValue;
+                }
+                else
+                {
+                    // ✅ INSERT
+                    _db.SignedDocumentResponse.Add(new SignedDocumentResponse
+                    {
+                        SignedDocumentId = signedDocumentId,
+                        QuestionCode = dto.QuestionCode,
+                        ResponseType = dto.ResponseType,
+                        BoolValue = dto.BoolValue,
+                        TextValue = dto.TextValue,
+                        DateValue = dto.DateValue,
+                        ChoiceValue = dto.ChoiceValue
+                    });
+                }
             }
         }
 
