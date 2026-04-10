@@ -13,7 +13,7 @@ public class PatientDemographic
 
     public string? Ethnicity { get; set; }            // VARCHAR(60), NULL
 
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;  // DATETIME, CURRENT_TIMESTAMP
+    public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;  // DATETIME, CURRENT_TIMESTAMP
 
     // Navigation property
     public Patient? Patient { get; set; }

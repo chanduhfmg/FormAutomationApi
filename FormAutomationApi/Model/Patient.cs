@@ -63,6 +63,7 @@ public class Patient
     [StringLength(4)]
     public string? Initials { get; set; }
 
+    public string? Apt { get; set; }
 
 
     

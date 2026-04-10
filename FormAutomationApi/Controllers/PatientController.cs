@@ -1,4 +1,4 @@
-﻿// Controllers/PatientFormController.cs
+﻿// Controllers/PatientController.cs
 
 using FormAutomationApi.Context;
 using FormAutomationApi.DTOs;
@@ -13,105 +13,143 @@ namespace FormAutomationApi.Controllers
     public class PatientController : ControllerBase
     {
         private readonly ApplicationDbContext _db;
-
         public PatientController(ApplicationDbContext db) => _db = db;
 
+        // ─────────────────────────────────────────────────────────────────────
+        // GET /api/Patient/{id}
+        // ─────────────────────────────────────────────────────────────────────
         [HttpGet("{id}")]
         public async Task<IActionResult> GetPatient(int id)
-
         {
-
-            var patient = await _db.Patients.FirstOrDefaultAsync(p => p.PatientId == id);
+            // Patient: PK = PatientId (AUTO_INCREMENT)
+            var patient = await _db.Patients
+                .FirstOrDefaultAsync(p => p.PatientId == id);
 
             if (patient == null) return NotFound();
-            var patientid = patient?.PatientId;
-            
-            var emergency = await _db.EmergencyContacts.FirstOrDefaultAsync(p => p.PatientId == patientid);
 
- 
-            
-            var hipaa = await _db.HipaaFamilyMembers
-     .Where(p => p.HipaaFamilyMemberId == patientid)
-     .ToListAsync();
+            var patientId = patient.PatientId;
 
-            //pharmacy
-            var pharmacy = await _db.PatientPharmacies.FirstOrDefaultAsync(p => p.PatientId == patientid);
+            // PatientDemographic: PK = PatientId (shared key, 1-to-1)
+            var demographics = await _db.PatientDemographics
+                .FirstOrDefaultAsync(d => d.PatientId == patientId);
 
-            //demographics
-            var demographics = await _db.PatientDemographics.FirstOrDefaultAsync(p => p.PatientId == patientid);
+            // PatientEmployment: PK = PatientEmploymentId, FK = PatientId
+            var employer = await _db.PatientEmployments
+                .FirstOrDefaultAsync(e => e.PatientId == patientId);
 
-            //employer
-            var employer = await _db.PatientEmployments.FirstOrDefaultAsync(p => p.PatientEmploymentId == patientid);
+            // EmergencyContact: PK = EmergencyContactId, FK = PatientId
+            var emergency = await _db.EmergencyContacts
+                .FirstOrDefaultAsync(e => e.PatientId == patientId);
 
+            // PatientPharmacy: PK = PatientPharmacyId, FK = PatientId
+            var pharmacy = await _db.PatientPharmacies
+                .FirstOrDefaultAsync(p => p.PatientId == patientId);
 
-            //patientinsurance
-            var patientInsurance = await _db.PatientInsurances.FirstOrDefaultAsync(p => p.PatientId == patientid);
+            // PatientInsurance: PK = PatientInsuranceId, FK = PatientId + InsurancePlanId
+            var patientInsurance = await _db.PatientInsurances
+                .FirstOrDefaultAsync(p => p.PatientId == patientId);
 
-            var insurancePlanId = patientInsurance?.InsurancePlanId;
+            // InsurancePlan: PK = InsurancePlanId
+            InsurancePlan? insurance = null;
+            if (patientInsurance?.InsurancePlanId != null)
+            {
+                insurance = await _db.InsurancePlans
+                    .FirstOrDefaultAsync(p => p.InsurancePlanId == patientInsurance.InsurancePlanId);
+            }
 
-            var insurance = await _db.InsurancePlans.FirstOrDefaultAsync(p => p.InsurancePlanId == insurancePlanId);
+            // PatientOffice: PK = PatientOfficeId, FK = PatientId + OfficeId
+            var patientOffice = await _db.PatientOffices
+                .FirstOrDefaultAsync(p => p.PatientId == patientId);
 
-            var intakePacket = await _db.IntakePackets.FirstOrDefaultAsync(p => p.PatientId == patientid);
+            // Office: PK = OfficeId
+            Office? office = null;
+            if (patientOffice?.OfficeId != null)
+            {
+                office = await _db.Offices
+                    .FirstOrDefaultAsync(o => o.OfficeId == patientOffice.OfficeId);
+            }
 
-            var intakePacketId = intakePacket?.IntakePacketId;
+            // PatientProvider: PK = PatientProviderId, FK = PatientId
+            var patientProvider = await _db.patientProviders
+                .FirstOrDefaultAsync(p => p.PatientId == patientId);
 
-            var signedDocuments = await _db.SignedDocuments.FirstOrDefaultAsync(p => p.IntakePacketId == intakePacketId);
+            // IntakePacket: PK = IntakePacketId, FK = PatientId + OfficeId
+            var intakePacket = await _db.IntakePackets
+                .FirstOrDefaultAsync(p => p.PatientId == patientId);
 
-            var signedDocumentId = signedDocuments.SignedDocumentId;
+            // Everything below depends on having a SignedDocument
+            SignedDocument? signedDocuments = null;
+            List<SignedDocumentResponse> signedDocumentResponse = new();
+            List<HipaaFamilyMember> hipaa = new();
+            UnableToObtainSignature? unableToObtainSignature = null;
 
-            var signedDocumentResponse = await _db.SignedDocumentResponse.Where(p => p.SignedDocumentId == signedDocumentId).ToListAsync();
+            if (intakePacket != null)
+            {
+                // SignedDocument: PK = SignedDocumentId, FK = IntakePacketId + DocumentTypeId
+                signedDocuments = await _db.SignedDocuments
+                    .FirstOrDefaultAsync(s => s.IntakePacketId == intakePacket.IntakePacketId);
 
-            var patientoffice = await _db.PatientOffices.FirstOrDefaultAsync(p => p.PatientId == patientid);
+                if (signedDocuments != null)
+                {
+                    var signedDocumentId = signedDocuments.SignedDocumentId;
 
-            var officeid = patientoffice.OfficeId;
+                    // SignedDocumentResponse: PK = ResponseId, FK = SignedDocumentId
+                    signedDocumentResponse = await _db.SignedDocumentResponse
+                        .Where(r => r.SignedDocumentId == signedDocumentId)
+                        .ToListAsync();
 
-            var office = await _db.Offices.FirstOrDefaultAsync(p => p.OfficeId == officeid);
+                    // HipaaFamilyMember: PK = HipaaFamilyMemberId, FK = SignedDocumentId
+                    // IMPORTANT: No PatientId column on this table
+                    hipaa = await _db.HipaaFamilyMembers
+                        .Where(h => h.SignedDocumentId == signedDocumentId)
+                        .ToListAsync();
 
-            var patientProvider = await _db.patientProviders.FirstOrDefaultAsync(p => p.PatientId == patientid);
+                    // UnableToObtainSignature: PK = UnableId, FK = SignedDocumentId
+                    unableToObtainSignature = await _db.UnableToObtainSignatures
+                        .FirstOrDefaultAsync(u => u.SignedDocumentId == signedDocumentId);
+                }
+            }
 
-            var unableToObtain = await _db.UnableToObtainSignatures.FirstOrDefaultAsync(p => p.SignedDocumentId == signedDocumentId);
+            // PatientSignature: PK = PatientSignatureId, FK = PatientId
+            var signature = await _db.PatientSignatures
+                .FirstOrDefaultAsync(s => s.PatientId == patientId);
 
-          var signature =await _db.PatientSignatures.FirstOrDefaultAsync(p=>p.PatientId == patientid);
-
-            if (patient == null)
-                return NotFound();
-            var obj = new
+            return Ok(new
             {
                 patient,
-                emergency,
-                insurance,
-                hipaa,
-                pharmacy,
                 demographics,
                 employer,
+                emergency,
+                pharmacy,
                 patientInsurance,
+                insurance,
+                patientOffice,
+                office,
+                patientProvider,
                 intakePacket,
                 signedDocuments,
                 signedDocumentResponse,
-                patientoffice,
-                office,
-                patientProvider,
-                unableToObtain,
+                hipaa,
+                unableToObtainSignature,
                 signature
-
-
-            };
-            return Ok(obj);
-
+            });
         }
 
+        // ─────────────────────────────────────────────────────────────────────
+        // POST /api/Patient/upload-signature
+        // ─────────────────────────────────────────────────────────────────────
         [HttpPost("upload-signature")]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> UploadSignature([FromForm] UploadSignatureRequest request)
         {
             if (request.File == null || request.File.Length == 0)
-                return BadRequest("No file");
+                return BadRequest("No file provided.");
 
             using var ms = new MemoryStream();
             await request.File.CopyToAsync(ms);
-
             var bytes = ms.ToArray();
 
+            // PatientSignature: PK = PatientSignatureId, FK = PatientId
             var existing = await _db.PatientSignatures
                 .FirstOrDefaultAsync(x => x.PatientId == request.PatientId);
 
@@ -134,11 +172,12 @@ namespace FormAutomationApi.Controllers
             }
 
             await _db.SaveChangesAsync();
-
             return Ok(new { success = true });
         }
 
-
+        // ─────────────────────────────────────────────────────────────────────
+        // POST /api/Patient/submit
+        // ─────────────────────────────────────────────────────────────────────
         [HttpPost("submit")]
         public async Task<IActionResult> Submit([FromBody] RequestFormSubmission request)
         {
@@ -149,8 +188,10 @@ namespace FormAutomationApi.Controllers
 
             try
             {
+                // Step 1: Patient — must be first (all other tables FK to patientId)
                 var patientId = await UpsertPatientAsync(request.Patient);
 
+                // Step 2: Independent child tables — all keyed by PatientId
                 await UpsertDemographicAsync(patientId, request.PatientDemographic);
                 await UpsertEmploymentAsync(patientId, request.PatientEmployment);
                 await UpsertPharmacyAsync(patientId, request.PatientPharmacy);
@@ -158,28 +199,25 @@ namespace FormAutomationApi.Controllers
                 await UpsertOfficeAsync(patientId, request.PatientOffice);
                 await UpsertEmergencyContactAsync(patientId, request.EmergencyContact);
                 await UpsertProviderAsync(patientId, request.PatientProvider);
-                await UpsertHipaaAsync(patientId, request.HipaaFamilyMembers);
 
-                // ✅ Intake
+                // Step 3: IntakePacket — needs patientId, produces intakePacketId
                 var intakeId = await UpsertIntakePacketAsync(patientId, request.IntakePacket);
-
                 if (intakeId == null)
-                    throw new Exception("IntakePacket creation failed");
+                    throw new Exception("IntakePacket creation failed.");
 
-                // ✅ Signed Document    
+                // Step 4: SignedDocument — needs intakePacketId, produces signedDocumentId
                 var signedDocumentId = await UpsertSignedDocumentAsync(intakeId.Value, request.SignedDocument);
 
-                // ✅ Responses
-                if (request.SignedDocumentResponses != null)
-                {
-                    await UpsertSignedDocumentResponsesAsync(signedDocumentId, request.SignedDocumentResponses);
-                }
+                // Step 5: HipaaFamilyMember — linked via SignedDocumentId ONLY (no PatientId column)
+                await UpsertHipaaAsync(signedDocumentId, request.HipaaFamilyMembers);
 
-                // ✅ Unable to sign
+                // Step 6: SignedDocumentResponses — keyed by signedDocumentId + questionCode
+                if (request.SignedDocumentResponses != null)
+                    await UpsertSignedDocumentResponsesAsync(signedDocumentId, request.SignedDocumentResponses);
+
+                // Step 7: UnableToObtainSignature — keyed by signedDocumentId
                 if (request.UnableToObtainSignature != null)
-                {
                     await UpsertUnableToObtainSignatureAsync(signedDocumentId, request.UnableToObtainSignature);
-                }
 
                 await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -198,83 +236,95 @@ namespace FormAutomationApi.Controllers
             }
         }
 
+        // ─────────────────────────────────────────────────────────────────────
+        // PRIVATE UPSERT HELPERS
+        // ─────────────────────────────────────────────────────────────────────
 
-        // ── PATIENT ───────────────────────────────────────────────────────────
+        // Patient
+        // Schema: PatientId(PK AUTO_INCREMENT), FirstName, MiddleInitial, LastName,
+        //         DateOfBirth, Sex, MaritalStatus, SSN_Last4, SSN_Encrypted,
+        //         Email, PhonePrimary, PhoneAlternate, AddressLine1, AddressLine2,
+        //         City, State, ZipCode, CreatedAt, UpdatedAt, initials, apt
         private async Task<int> UpsertPatientAsync(Patient dto)
         {
             if (dto == null) throw new Exception("Patient data is required.");
-            var existing = await _db.Patients.FindAsync(dto.PatientId);
 
-            if (existing!=null)                          // ← ID exists = UPDATE
+            Patient? existing = null;
+            if (dto.PatientId > 0)
+                existing = await _db.Patients.FindAsync(dto.PatientId);
+
+            if (existing != null)
             {
-                //if (existing == null) throw new Exception($"Patient {dto.PatientId} not found.");
-
                 existing.FirstName = dto.FirstName;
-                existing.LastName = dto.LastName;
                 existing.MiddleInitial = dto.MiddleInitial;
+                existing.LastName = dto.LastName;
+                existing.DateOfBirth = dto.DateOfBirth;
+                existing.Sex = dto.Sex;
+                existing.MaritalStatus = dto.MaritalStatus;
+                existing.SSN_Last4 = dto.SSN_Last4;
+                existing.Email = dto.Email;
+                existing.PhonePrimary = dto.PhonePrimary;
+                existing.PhoneAlternate = dto.PhoneAlternate;
                 existing.AddressLine1 = dto.AddressLine1;
                 existing.AddressLine2 = dto.AddressLine2;
                 existing.City = dto.City;
                 existing.State = dto.State;
                 existing.ZipCode = dto.ZipCode;
-                existing.Email = dto.Email;
-                existing.PhonePrimary = dto.PhonePrimary;
-                existing.PhoneAlternate = dto.PhoneAlternate;
-                existing.Sex = dto.Sex;
-                existing.MaritalStatus = dto.MaritalStatus;
-                existing.DateOfBirth = dto.DateOfBirth;
-                existing.SSN_Last4 = dto.SSN_Last4;
+                existing.Initials = dto.Initials;
+                existing.Apt = dto.Apt;
                 existing.UpdatedAt = DateTime.UtcNow;
 
-               
+                await _db.SaveChangesAsync();
                 return existing.PatientId;
             }
-            else                                            // ← No ID = INSERT
+            else
             {
-                var newPatient = new Patient
+                var entity = new Patient
                 {
-                    
                     FirstName = dto.FirstName,
-                    LastName = dto.LastName,
                     MiddleInitial = dto.MiddleInitial,
+                    LastName = dto.LastName,
+                    DateOfBirth = dto.DateOfBirth,
+                    Sex = dto.Sex,
+                    MaritalStatus = dto.MaritalStatus,
+                    SSN_Last4 = dto.SSN_Last4,
+                    Email = dto.Email,
+                    PhonePrimary = dto.PhonePrimary,
+                    PhoneAlternate = dto.PhoneAlternate,
                     AddressLine1 = dto.AddressLine1,
                     AddressLine2 = dto.AddressLine2,
                     City = dto.City,
                     State = dto.State,
                     ZipCode = dto.ZipCode,
-                    Email = dto.Email,
-                    PhonePrimary = dto.PhonePrimary,
-                    PhoneAlternate = dto.PhoneAlternate,
-                    Sex = dto.Sex,
-                    MaritalStatus = dto.MaritalStatus,
-                    DateOfBirth = dto.DateOfBirth,
-                    SSN_Last4 = dto.SSN_Last4,
+                    Initials = dto.Initials,
+                    Apt = dto.Apt,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
 
-                _db.Patients.Add(newPatient);
-                return newPatient.PatientId;
+                _db.Patients.Add(entity);
+                await _db.SaveChangesAsync(); // Must save to get AUTO_INCREMENT PatientId
+                return entity.PatientId;
             }
         }
 
-
-        // ── DEMOGRAPHIC ───────────────────────────────────────────────────────
+        // PatientDemographic
+        // Schema: PatientId(PK/FK — shared key), Language, Race, Ethnicity, UpdatedAt
         private async Task UpsertDemographicAsync(int patientId, PatientDemographic? dto)
         {
             if (dto == null) return;
-            Console.WriteLine("Patient upserted with ID: " + patientId);
 
-            var existing = await _db.PatientDemographics.FindAsync(patientId); // PK = PatientId (1-to-1)
+            // PatientId IS the PK here so FindAsync is correct
+            var existing = await _db.PatientDemographics.FindAsync(patientId);
 
-            if (existing != null)                           // ← UPDATE
+            if (existing != null)
             {
                 existing.Language = dto.Language;
                 existing.Race = dto.Race;
                 existing.Ethnicity = dto.Ethnicity;
                 existing.UpdatedAt = DateTime.UtcNow;
             }
-            else                                            // ← INSERT
+            else
             {
                 _db.PatientDemographics.Add(new PatientDemographic
                 {
@@ -285,27 +335,28 @@ namespace FormAutomationApi.Controllers
                     UpdatedAt = DateTime.UtcNow
                 });
             }
-
         }
 
-
-        // ── EMPLOYMENT ────────────────────────────────────────────────────────
+        // PatientEmployment
+        // Schema: PatientEmploymentId(PK AUTO_INCREMENT), PatientId(FK),
+        //         EmployerName, Occupation, EmployerAddress, CreatedAt
         private async Task UpsertEmploymentAsync(int patientId, PatientEmployment? dto)
         {
             if (dto == null) return;
-             var existing = await _db.PatientEmployments.FindAsync(patientId);
 
-            if (existing!=null)                // ← UPDATE
+            // PK is PatientEmploymentId not PatientId — must use FirstOrDefaultAsync
+            var existing = await _db.PatientEmployments
+                .FirstOrDefaultAsync(e => e.PatientId == patientId);
+
+            if (existing != null)
             {
-                
-
                 existing.EmployerName = dto.EmployerName;
                 existing.Occupation = dto.Occupation;
                 existing.EmployerAddress = dto.EmployerAddress;
             }
-            else                                            // ← INSERT
+            else
             {
-                if (string.IsNullOrEmpty(dto.EmployerName)) return; // skip blank
+                if (string.IsNullOrWhiteSpace(dto.EmployerName)) return;
 
                 _db.PatientEmployments.Add(new PatientEmployment
                 {
@@ -316,27 +367,29 @@ namespace FormAutomationApi.Controllers
                     CreatedAt = DateTime.UtcNow
                 });
             }
-
         }
 
-
-        // ── PHARMACY ──────────────────────────────────────────────────────────
+        // PatientPharmacy
+        // Schema: PatientPharmacyId(PK AUTO_INCREMENT), PatientId(FK),
+        //         PharmacyName, Location, Phone, IsPreferred, CreatedAt
         private async Task UpsertPharmacyAsync(int patientId, PatientPharmacy? dto)
         {
             if (dto == null) return;
-            var existing = await _db.PatientPharmacies.FindAsync(patientId);
 
-            if (existing!=null)                  // ← UPDATE
+            // PK is PatientPharmacyId not PatientId — must use FirstOrDefaultAsync
+            var existing = await _db.PatientPharmacies
+                .FirstOrDefaultAsync(p => p.PatientId == patientId);
+
+            if (existing != null)
             {
-
                 existing.PharmacyName = dto.PharmacyName;
                 existing.Location = dto.Location;
                 existing.Phone = dto.Phone;
                 existing.IsPreferred = dto.IsPreferred;
             }
-            else                                            // ← INSERT
+            else
             {
-                if (string.IsNullOrEmpty(dto.PharmacyName)) return;
+                if (string.IsNullOrWhiteSpace(dto.PharmacyName)) return;
 
                 _db.PatientPharmacies.Add(new PatientPharmacy
                 {
@@ -348,19 +401,22 @@ namespace FormAutomationApi.Controllers
                     CreatedAt = DateTime.UtcNow
                 });
             }
-
         }
 
-
-        // ── INSURANCE ─────────────────────────────────────────────────────────
+        // PatientInsurance
+        // Schema: PatientInsuranceId(PK AUTO_INCREMENT), PatientId(FK), InsurancePlanId(FK nullable),
+        //         CoverageType, MemberId, GroupNumber, SubscriberName, SubscriberDOB,
+        //         RelationshipToPatient, IsActive, CreatedAt
         private async Task UpsertInsuranceAsync(int patientId, PatientInsurance? dto)
         {
             if (dto == null) return;
-            var existing = await _db.PatientInsurances.FindAsync(patientId);
 
-            if (existing!=null)                 // ← UPDATE
+            // PK is PatientInsuranceId not PatientId — must use FirstOrDefaultAsync
+            var existing = await _db.PatientInsurances
+                .FirstOrDefaultAsync(p => p.PatientId == patientId);
+
+            if (existing != null)
             {
-
                 existing.InsurancePlanId = dto.InsurancePlanId;
                 existing.CoverageType = dto.CoverageType;
                 existing.MemberId = dto.MemberId;
@@ -370,9 +426,9 @@ namespace FormAutomationApi.Controllers
                 existing.RelationshipToPatient = dto.RelationshipToPatient;
                 existing.IsActive = dto.IsActive;
             }
-            else                                            // ← INSERT
+            else
             {
-                if (string.IsNullOrEmpty(dto.CoverageType)) return;
+                if (string.IsNullOrWhiteSpace(dto.CoverageType)) return;
 
                 _db.PatientInsurances.Add(new PatientInsurance
                 {
@@ -388,27 +444,27 @@ namespace FormAutomationApi.Controllers
                     CreatedAt = DateTime.UtcNow
                 });
             }
-
         }
 
-
-        // ── OFFICE ────────────────────────────────────────────────────────────
+        // PatientOffice
+        // Schema: PatientOfficeId(PK AUTO_INCREMENT), PatientId(FK), OfficeId(FK),
+        //         IsPrimary(TINYINT nullable), FirstVisitDate(DATE nullable), Active(TINYINT nullable)
         private async Task UpsertOfficeAsync(int patientId, PatientOffice? dto)
         {
-            if (dto == null) return;
+            if (dto == null || dto.OfficeId == 0) return;
 
-                var existing = await _db.PatientOffices.FirstOrDefaultAsync(p=>p.PatientId==patientId);
-            if (existing!=null)                    // ← UPDATE
+            var existing = await _db.PatientOffices
+                .FirstOrDefaultAsync(p => p.PatientId == patientId);
+
+            if (existing != null)
             {
                 existing.OfficeId = dto.OfficeId;
                 existing.IsPrimary = dto.IsPrimary;
                 existing.FirstVisitDate = dto.FirstVisitDate;
                 existing.Active = dto.Active;
             }
-            else                                            // ← INSERT
+            else
             {
-                if (dto.OfficeId == 0) return;
-
                 _db.PatientOffices.Add(new PatientOffice
                 {
                     PatientId = patientId,
@@ -418,26 +474,29 @@ namespace FormAutomationApi.Controllers
                     Active = dto.Active
                 });
             }
-
         }
 
-
-        // ── EMERGENCY CONTACT ─────────────────────────────────────────────────
+        // EmergencyContact
+        // Schema: EmergencyContactId(PK AUTO_INCREMENT), PatientId(FK),
+        //         ContactName, Relationship, Phone, IsPrimary(TINYINT), CreatedAt
         private async Task UpsertEmergencyContactAsync(int patientId, EmergencyContact? dto)
         {
             if (dto == null) return;
-                var existing = await _db.EmergencyContacts.FindAsync(patientId);
 
-            if (existing!=null)                 // ← UPDATE
+            // PK is EmergencyContactId not PatientId — must use FirstOrDefaultAsync
+            var existing = await _db.EmergencyContacts
+                .FirstOrDefaultAsync(e => e.PatientId == patientId);
+
+            if (existing != null)
             {
                 existing.ContactName = dto.ContactName;
                 existing.Relationship = dto.Relationship;
                 existing.Phone = dto.Phone;
                 existing.IsPrimary = dto.IsPrimary;
             }
-            else                                            // ← INSERT
+            else
             {
-                if (string.IsNullOrEmpty(dto.ContactName)) return;
+                if (string.IsNullOrWhiteSpace(dto.ContactName)) return;
 
                 _db.EmergencyContacts.Add(new EmergencyContact
                 {
@@ -449,27 +508,28 @@ namespace FormAutomationApi.Controllers
                     CreatedAt = DateTime.UtcNow
                 });
             }
-
         }
 
-
-        // ── PROVIDER ──────────────────────────────────────────────────────────
+        // PatientProvider
+        // Schema: PatientProviderId(PK AUTO_INCREMENT), PatientId(FK),
+        //         ProviderName, ProviderType, Notes, CreatedAt
         private async Task UpsertProviderAsync(int patientId, PatientProvider? dto)
         {
             if (dto == null) return;
 
-            if (dto.PatientProviderId > 0)                  // ← UPDATE
-            {
-                var existing = await _db.patientProviders.FindAsync(patientId);
-                if (existing == null) return;
+            // PK is PatientProviderId not PatientId — must use FirstOrDefaultAsync
+            var existing = await _db.patientProviders
+                .FirstOrDefaultAsync(p => p.PatientId == patientId);
 
+            if (existing != null)
+            {
                 existing.ProviderName = dto.ProviderName;
                 existing.ProviderType = dto.ProviderType;
                 existing.Notes = dto.Notes;
             }
-            else                                            // ← INSERT
+            else
             {
-                if (string.IsNullOrEmpty(dto.ProviderName)) return;
+                if (string.IsNullOrWhiteSpace(dto.ProviderName)) return;
 
                 _db.patientProviders.Add(new PatientProvider
                 {
@@ -480,41 +540,12 @@ namespace FormAutomationApi.Controllers
                     CreatedAt = DateTime.UtcNow
                 });
             }
-
         }
 
-
-        // ── HIPAA FAMILY MEMBERS ──────────────────────────────────────────────
-        private async Task UpsertHipaaAsync(int patientId, List<HipaaFamilyMember>? members)
-        {
-            if (members == null || members.Count == 0) return;
-
-            foreach (var dto in members)
-            {
-                    var existing = await _db.HipaaFamilyMembers.FirstOrDefaultAsync(dto=>dto.HipaaFamilyMemberId==patientId);
-                if (existing!=null)            // ← UPDATE
-                {
-
-                    existing.FamilyMemberName = dto.FamilyMemberName;
-                    existing.Relationship = dto.Relationship;
-                }
-                else                                        // ← INSERT
-                {
-                    if (string.IsNullOrEmpty(dto.FamilyMemberName)) continue;
-
-                    _db.HipaaFamilyMembers.Add(new HipaaFamilyMember
-                    {
-                        SignedDocumentId = dto.SignedDocumentId,
-                        FamilyMemberName = dto.FamilyMemberName,
-                        Relationship = dto.Relationship
-                    });
-                }
-            }
-
-        }
-
-
-        // ── INTAKE PACKET ─────────────────────────────────────────────────────
+        // IntakePacket
+        // Schema: IntakePacketId(PK AUTO_INCREMENT), PatientId(FK), PacketDate(DATE),
+        //         LocationName, CreatedAt, OfficeId(FK)
+        // CRITICAL: Must SaveChangesAsync before returning to get the real AUTO_INCREMENT id
         private async Task<int?> UpsertIntakePacketAsync(int patientId, IntakePacket? dto)
         {
             if (dto == null) return null;
@@ -526,32 +557,37 @@ namespace FormAutomationApi.Controllers
             {
                 existing.PacketDate = dto.PacketDate;
                 existing.LocationName = dto.LocationName;
-                existing.OfficeId = dto.OfficeId;
+                existing.OfficeId = dto.OfficeId > 0 ? dto.OfficeId : null;
 
+                await _db.SaveChangesAsync();
                 return existing.IntakePacketId;
             }
             else
             {
+                // ✅ FIXED — treat 0 as null so FK is not violated
                 var entity = new IntakePacket
                 {
                     PatientId = patientId,
                     PacketDate = dto.PacketDate,
                     LocationName = dto.LocationName,
-                    OfficeId = dto.OfficeId,
+                    OfficeId = dto.OfficeId > 0 ? dto.OfficeId : null,  // ← null when no office
                     CreatedAt = DateTime.UtcNow
                 };
 
                 _db.IntakePackets.Add(entity);
-
+                await _db.SaveChangesAsync(); // Required to populate IntakePacketId before returning
                 return entity.IntakePacketId;
             }
         }
 
-
-        // ── SIGNED DOCUMENT ───────────────────────────────────────────────────
-        private async Task<int> UpsertSignedDocumentAsync(int intakePacketId, SignedDocument dto)
+        // SignedDocument
+        // Schema: SignedDocumentId(PK AUTO_INCREMENT), IntakePacketId(FK), DocumentTypeId(FK),
+        //         SignedByName, SignedByRole, RepresentativeAuthority, SignedAt,
+        //         SignatureCaptured(TINYINT), Notes, DocumentVersionId(FK nullable)
+        // CRITICAL: Must SaveChangesAsync before returning to get the real AUTO_INCREMENT id
+        private async Task<int> UpsertSignedDocumentAsync(int intakePacketId, SignedDocument? dto)
         {
-            if (dto == null) throw new Exception("SignedDocument is required");
+            if (dto == null) throw new Exception("SignedDocument is required.");
 
             var existing = await _db.SignedDocuments
                 .FirstOrDefaultAsync(x => x.IntakePacketId == intakePacketId);
@@ -565,8 +601,8 @@ namespace FormAutomationApi.Controllers
                 existing.SignatureCaptured = dto.SignatureCaptured;
                 existing.Notes = dto.Notes;
                 existing.DocumentVersionId = dto.DocumentVersionId;
-                
 
+                await _db.SaveChangesAsync();
                 return existing.SignedDocumentId;
             }
             else
@@ -574,25 +610,65 @@ namespace FormAutomationApi.Controllers
                 var entity = new SignedDocument
                 {
                     IntakePacketId = intakePacketId,
-                    DocumentTypeId = dto.DocumentTypeId,
+                    DocumentTypeId = dto.DocumentTypeId > 0 ? dto.DocumentTypeId : 1,
                     SignedByName = dto.SignedByName,
                     SignedByRole = dto.SignedByRole,
                     RepresentativeAuthority = dto.RepresentativeAuthority,
                     SignedAt = DateTime.UtcNow,
                     SignatureCaptured = dto.SignatureCaptured,
                     Notes = dto.Notes,
-                    DocumentVersionId = dto.DocumentVersionId,
-                    
+                    DocumentVersionId = dto.DocumentVersionId
                 };
 
                 _db.SignedDocuments.Add(entity);
-
+                await _db.SaveChangesAsync(); // Required to populate SignedDocumentId before returning
                 return entity.SignedDocumentId;
             }
         }
 
+        // HipaaFamilyMember
+        // Schema: HipaaFamilyMemberId(PK AUTO_INCREMENT), SignedDocumentId(FK),
+        //         FamilyMemberName, Relationship, isRepresentative(BIT)
+        // IMPORTANT: No PatientId column on this table — linked ONLY via SignedDocumentId
+        private async Task UpsertHipaaAsync(int signedDocumentId, List<HipaaFamilyMember>? members)
+        {
+            if (members == null || members.Count == 0) return;
 
-        private async Task UpsertSignedDocumentResponsesAsync(int signedDocumentId, List<SignedDocumentResponse> responses)
+            foreach (var dto in members)
+            {
+                HipaaFamilyMember? existing = null;
+
+                // Update path: only if we already have a real PK from a previous save
+                if (dto.HipaaFamilyMemberId > 0)
+                    existing = await _db.HipaaFamilyMembers.FindAsync(dto.HipaaFamilyMemberId);
+
+                if (existing != null)
+                {
+                    existing.FamilyMemberName = dto.FamilyMemberName;
+                    existing.Relationship = dto.Relationship;
+                    existing.IsRepresentative = dto.IsRepresentative;
+                }
+                else
+                {
+                    if (string.IsNullOrWhiteSpace(dto.FamilyMemberName)) continue;
+
+                    _db.HipaaFamilyMembers.Add(new HipaaFamilyMember
+                    {
+                        SignedDocumentId = signedDocumentId, // Only FK — no PatientId
+                        FamilyMemberName = dto.FamilyMemberName,
+                        Relationship = dto.Relationship,
+                        IsRepresentative = dto.IsRepresentative
+                    });
+                }
+            }
+        }
+
+        // SignedDocumentResponse
+        // Schema: ResponseId(PK AUTO_INCREMENT), SignedDocumentId(FK), QuestionCode,
+        //         ResponseType, BoolValue(TINYINT nullable), TextValue, DateValue, ChoiceValue
+        private async Task UpsertSignedDocumentResponsesAsync(
+            int signedDocumentId,
+            List<SignedDocumentResponse> responses)
         {
             foreach (var dto in responses)
             {
@@ -603,7 +679,6 @@ namespace FormAutomationApi.Controllers
 
                 if (existing != null)
                 {
-                    // ✅ UPDATE
                     existing.BoolValue = dto.BoolValue;
                     existing.TextValue = dto.TextValue;
                     existing.ChoiceValue = dto.ChoiceValue;
@@ -611,7 +686,6 @@ namespace FormAutomationApi.Controllers
                 }
                 else
                 {
-                    // ✅ INSERT
                     _db.SignedDocumentResponse.Add(new SignedDocumentResponse
                     {
                         SignedDocumentId = signedDocumentId,
@@ -626,22 +700,26 @@ namespace FormAutomationApi.Controllers
             }
         }
 
-
-        // ── UNABLE TO OBTAIN SIGNATURE ────────────────────────────────────────
-        private async Task UpsertUnableToObtainSignatureAsync(int signedDocumentId, UnableToObtainSignature dto)
+        // UnableToObtainSignature
+        // Schema: UnableId(PK AUTO_INCREMENT), SignedDocumentId(FK),
+        //         AttemptDate(DATE nullable), Reason, StaffInitials
+        private async Task UpsertUnableToObtainSignatureAsync(
+            int signedDocumentId,
+            UnableToObtainSignature dto)
         {
             if (dto == null) return;
 
-            if (dto.UnableId > 0)                           // ← UPDATE
-            {
-                var existing = await _db.UnableToObtainSignatures.FindAsync(dto.UnableId);
-                if (existing == null) return;
+            // Always look up by FK, not by UnableId PK
+            var existing = await _db.UnableToObtainSignatures
+                .FirstOrDefaultAsync(u => u.SignedDocumentId == signedDocumentId);
 
+            if (existing != null)
+            {
                 existing.AttemptDate = dto.AttemptDate;
                 existing.Reason = dto.Reason;
                 existing.StaffInitials = dto.StaffInitials;
             }
-            else                                            // ← INSERT
+            else
             {
                 _db.UnableToObtainSignatures.Add(new UnableToObtainSignature
                 {
@@ -651,41 +729,6 @@ namespace FormAutomationApi.Controllers
                     StaffInitials = dto.StaffInitials
                 });
             }
-
         }
-   
-
-        // ── FORM SUBMISSION ───────────────────────────────────────────────────
-        //private async Task UpsertFormSubmissionAsync(int patientId, FormSubmission? dto)
-        //{
-        //    if (dto == null) return;
-
-        //    var existing = await _db.Form
-        //        .FirstOrDefaultAsync(f => f.PatientId == patientId);
-
-        //    if (existing != null)                           // ← UPDATE
-        //    {
-        //        existing.Status = dto.Status;
-        //        existing.ExpiresAt = dto.ExpiresAt;
-        //    }
-        //    else                                            // ← INSERT
-        //    {
-        //        _db.FormSubmissions.Add(new FormSubmission
-        //        {
-        //            SessionId = Guid.NewGuid(),
-        //            PatientId = patientId,
-        //            SenderId = dto.SenderId,
-        //            FormIds = dto.FormIds,
-        //            Status = dto.Status,
-        //            ExpiresAt = dto.ExpiresAt,
-        //            CreatedAt = DateTime.UtcNow
-        //        });
-        //    }
-
-        //    await _db.SaveChangesAsync();
-        //}
     }
-
-
 }
-
