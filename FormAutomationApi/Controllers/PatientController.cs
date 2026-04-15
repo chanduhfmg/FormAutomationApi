@@ -304,12 +304,17 @@ namespace FormAutomationApi.Controllers
                 };
 
                 _db.Patients.Add(entity);
-                _db.FormSubmissions.Update(new FormSubmission
+                await _db.SaveChangesAsync(); // ✅ NOW PatientId is generated
+
+                var submission = await _db.FormSubmissions
+                    .FirstOrDefaultAsync(x => x.SessionId == sessionId);
+
+                if (submission != null)
                 {
-                    SessionId = sessionId,
-                    PatientId = entity.PatientId,
-                });
-                await _db.SaveChangesAsync(); // Must save to get AUTO_INCREMENT PatientId
+                    submission.PatientId = entity.PatientId; // ✅ correct value now
+                    await _db.SaveChangesAsync();
+                }
+
                 return entity.PatientId;
             }
         }
