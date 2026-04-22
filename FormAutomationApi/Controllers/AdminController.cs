@@ -71,7 +71,7 @@ namespace FormAutomationApi.Controllers
 
                 //create form link in this
                 var baseUrl = _config["Frontend:FormsUrl"];
-                string formLink = $"{baseUrl}/forms?token={submission.SessionId}";
+                string formLink = $"{baseUrl}/subforms?token={submission.SessionId}";
 
 
                 var sent = await _twilioService.SendFormLink(request.Phone, formLink);
