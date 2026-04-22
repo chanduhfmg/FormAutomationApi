@@ -47,6 +47,8 @@ namespace FormAutomationApi.Context
         public DbSet<FormSubmission> FormSubmissions { get; set; }
 
         public DbSet<PatientSignature> PatientSignatures { get; set; }
+
+        public DbSet<DocumentVersionOffice> DocumentVersionOffices { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Patient>().ToTable("patient");
@@ -88,6 +90,8 @@ namespace FormAutomationApi.Context
             modelBuilder.Entity<FormSubmission>().ToTable("formsubmissions");
 
             modelBuilder.Entity<PatientSignature>().ToTable("patientsignature");
+
+            modelBuilder.Entity<DocumentVersionOffice>().ToTable("documentversionoffice");
         }
     }
 }

@@ -1,10 +1,12 @@
-﻿using System;
-using FormAutomationApi.Context;
+﻿using FormAutomationApi.Context;
 using FormAutomationApi.DTOs;
 using FormAutomationApi.Model;
 using FormAutomationApi.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Net.Mail;
+using Microsoft.Exchange.WebServices.Data;
 
 namespace FormAutomationApi.Controllers
 {
@@ -40,6 +42,44 @@ namespace FormAutomationApi.Controllers
 
             }
 
+        }
+
+        [HttpGet("facilities-with-forms")]
+        public async Task<IActionResult> GetFacilitiesWithForms(int page = 1, int pageSize = 10)
+        {
+            var query = _context.Offices;
+
+            var totalCount = await query.CountAsync();
+
+            var facilities = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(o => new
+                {
+                    o.OfficeId,
+                    o.OfficeName,
+                    Forms = _context.DocumentVersionOffices
+                        .Where(dvo => dvo.OfficeId == o.OfficeId)
+                        .Join(_context.DocumentVersions,
+                            dvo => dvo.DocumentVersionId,
+                            dv => dv.DocumentVersionId,
+                            (dvo, dv) => new
+                            {
+                                dv.DocumentVersionId,
+                                dv.VersionLabel,
+                                dv.TemplatePath
+                            })
+                        .ToList()
+                })
+                .ToListAsync();
+
+            return Ok(new
+            {
+                data = facilities,
+                totalCount,
+                page,
+                pageSize
+            });
         }
 
 
@@ -129,6 +169,116 @@ namespace FormAutomationApi.Controllers
 
             }
         }
+
+        [HttpPost("send-mail")]
+        public async Task<IActionResult> SendMail([FromForm] MailRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.From))
+                    return BadRequest("From is required");
+
+                var toList = _config.GetSection("MailSettings:To").Get<string[]>();
+                var ccList = _config.GetSection("MailSettings:Cc").Get<string[]>();
+
+                if ((toList == null || !toList.Any()) && (ccList == null || !ccList.Any()))
+                    return BadRequest("No recipients configured");
+
+                
+
+                var service = new ExchangeService(ExchangeVersion.Exchange2013)
+                {
+                    Credentials = new WebCredentials("hfmgemailservice@hfmg.net", "Top99secret!"),
+                    Url = new Uri("https://mail.hfmg.net/EWS/Exchange.asmx")
+                };
+
+                service.ImpersonatedUserId = new ImpersonatedUserId(
+                    ConnectingIdType.SmtpAddress,
+                    request.From
+                );
+
+                // ✅ Build subject from form data
+                var subject = !string.IsNullOrWhiteSpace(request.FormName)
+                    ? $"New Form Request: {request.FormName} — {request.FacilityName}"
+                    : request.Subject;
+
+                // ✅ Build HTML body from form submission details
+                var body = BuildFormRequestEmailBody(request);
+
+                var email = new EmailMessage(service)
+                {
+                    Subject = subject,
+                    Body = new MessageBody(BodyType.HTML, body)
+                };
+
+                if (request.File != null && request.File.Length > 0)
+                {
+                    using var ms = new MemoryStream();
+                    await request.File.CopyToAsync(ms);
+
+                    email.Attachments.AddFileAttachment(
+                        request.File.FileName,
+                        ms.ToArray()
+                    );
+                }
+
+                if (toList != null)
+                    foreach (var t in toList) email.ToRecipients.Add(t);
+
+                if (ccList != null)
+                    foreach (var c in ccList) email.CcRecipients.Add(c);
+
+                email.SendAndSaveCopy();
+
+                return Ok(new { message = "Email sent successfully" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error sending email", error = ex.Message });
+            }
+        }
+
+        // ✅ Separate method to build the HTML email
+        private string BuildFormRequestEmailBody(MailRequest request)
+        {
+            return $@"
+        <html>
+        <body style='font-family: Arial, sans-serif; color: #333; padding: 24px;'>
+            <h2 style='color: #4f46e5;'>New Form Development Request</h2>
+            <p>A new form has been submitted and requires development. Details below:</p>
+
+            <table style='width: 100%; border-collapse: collapse; margin-top: 16px;'>
+                <tr style='background: #f5f5f5;'>
+                    <td style='padding: 10px 14px; font-weight: bold; width: 180px;'>Form Name</td>
+                    <td style='padding: 10px 14px;'>{request.FormName ?? "—"}</td>
+                </tr>
+                <tr>
+                    <td style='padding: 10px 14px; font-weight: bold;'>Facility</td>
+                    <td style='padding: 10px 14px;'>{request.FacilityName ?? "—"}</td>
+                </tr>
+                <tr style='background: #f5f5f5;'>
+                    <td style='padding: 10px 14px; font-weight: bold;'>Category</td>
+                    <td style='padding: 10px 14px;'>{request.CategoryName ?? "—"}</td>
+                </tr>
+                <tr>
+                    <td style='padding: 10px 14px; font-weight: bold;'>Submitted By</td>
+                    <td style='padding: 10px 14px;'>{request.SubmittedBy ?? request.From}</td>
+                </tr>
+                <tr style='background: #f5f5f5;'>
+                    <td style='padding: 10px 14px; font-weight: bold;'>Notes</td>
+                    <td style='padding: 10px 14px;'>{(string.IsNullOrWhiteSpace(request.Notes) ? "No notes provided" : request.Notes)}</td>
+                </tr>
+            </table>
+
+            <p style='margin-top: 24px; color: #888; font-size: 12px;'>
+                This email was sent automatically from the Form Automation Dashboard.
+            </p>
+        </body>
+        </html>";
+        }
+
+
+
     }
 }  
 
