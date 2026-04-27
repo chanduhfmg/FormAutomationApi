@@ -21,18 +21,18 @@ public class TwilioService
     }
 
     // ✅ MAIN METHOD (your requirement)
-    public async Task<string> SendFormLink(string phoneNumber, string formUrl)
+    public async Task<string> SendFormLink(string PhoneNumber, string FormUrl)
     {
-        if (string.IsNullOrEmpty(phoneNumber))
+        if (string.IsNullOrEmpty(PhoneNumber))
             throw new Exception("Phone number is required");
 
-        if (string.IsNullOrEmpty(formUrl))
+        if (string.IsNullOrEmpty(FormUrl))
             throw new Exception("Form URL is required");
 
-        var messageBody = $"Hi, please fill your form here: {formUrl}";
+        var messageBody = $"Hi, please fill your form here: {FormUrl}";
 
         var options = new CreateMessageOptions(
-            new PhoneNumber(phoneNumber))
+            new PhoneNumber(PhoneNumber))
         {
             MessagingServiceSid = _messagingServiceSid,
             Body = messageBody

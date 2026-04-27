@@ -52,6 +52,10 @@ namespace FormAutomationApi.Context
 
         public DbSet<ArchiveForm> ArchiveForms { get; set; }
 
+        public DbSet<PatientAcpForm> PatientAcpForms { get; set; }
+        public DbSet<AcpAgent>AcpAgents  {get; set; }
+        public DbSet<AcpWitness> AcpWitnesses { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Patient>().ToTable("patient");
@@ -97,6 +101,10 @@ namespace FormAutomationApi.Context
             modelBuilder.Entity<DocumentVersionOffice>().ToTable("documentversionoffice");
 
             modelBuilder.Entity<ArchiveForm>().ToTable("archiveforms");
+
+            modelBuilder.Entity<PatientAcpForm>().ToTable("patient_acp_forms");
+            modelBuilder.Entity<AcpAgent>().ToTable("acp_agents");
+            modelBuilder.Entity<AcpWitness>().ToTable("acp_witnesses");
 
         }
     }
