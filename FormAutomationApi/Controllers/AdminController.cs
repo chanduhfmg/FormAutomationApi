@@ -45,9 +45,27 @@ namespace FormAutomationApi.Controllers
         }
 
         [HttpGet("facilities-with-forms")]
-        public async Task<IActionResult> GetFacilitiesWithForms(int page = 1, int pageSize = 10)
+        public async Task<IActionResult> GetFacilitiesWithForms(int page = 1, int pageSize = 10,string search="")
         {
-            var query = _context.Offices;
+            var query = _context.Offices.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var lowerSearch = search.ToLower();
+
+                query = query.Where(o =>
+                    o.OfficeName.ToLower().Contains(lowerSearch) ||
+
+                    _context.DocumentVersionOffices
+                        .Where(dvo => dvo.OfficeId == o.OfficeId)
+                        .Join(_context.DocumentVersions,
+                            dvo => dvo.DocumentVersionId,
+                            dv => dv.DocumentVersionId,
+                            (dvo, dv) => dv.VersionLabel.ToLower()
+                        )
+                        .Any(name => name.Contains(lowerSearch))
+                );
+            }
 
             var totalCount = await query.CountAsync();
 

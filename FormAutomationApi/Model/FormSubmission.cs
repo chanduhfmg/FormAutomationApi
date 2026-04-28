@@ -24,6 +24,9 @@ namespace FormAutomationApi.Model
         
         public string? OfficeId { get; set; }
 
+        public DateTime? CompletedAt { get; set; }
+
+        public DateTime? ComplianceExpiresAt { get; set; }
     }
 
     public enum SubmissionStatus

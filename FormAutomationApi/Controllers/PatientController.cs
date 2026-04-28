@@ -237,6 +237,9 @@ namespace FormAutomationApi.Controllers
                 if (submission != null)
                 {
                     submission.Status = SubmissionStatus.Completed;
+                    var completedAt = DateTime.UtcNow;
+                    submission.CompletedAt = completedAt;
+                    submission.ComplianceExpiresAt = completedAt.AddYears(1);
                 }
 
                 await _db.SaveChangesAsync();
