@@ -6,5 +6,7 @@
         public string? patientId { get; set; }
         public string Phone { get; set; }
         public string FormLink { get; set; }
+
+        public string officeId { get; set; }
     }
 }

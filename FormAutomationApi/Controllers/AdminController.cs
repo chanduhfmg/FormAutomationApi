@@ -101,7 +101,9 @@ namespace FormAutomationApi.Controllers
                     PatientId = int.TryParse(request.patientId, out var pid) ? pid : null,
                     ExpiresAt = DateTime.Now.AddDays(7),
                     FormIds = request.FormLink,
-                    SenderId = 0
+                    SenderId = 0 , 
+                    OfficeId = request.officeId
+
                 };
 
                 await _context.FormSubmissions.AddAsync(submission);
@@ -121,6 +123,42 @@ namespace FormAutomationApi.Controllers
             {
                 return StatusCode(500, new { message = "Error sending SMS", error = ex.Message });
 
+            }
+        }
+
+        // filter submissin through facility id
+        [HttpGet("get-sessions/filter")]
+        public async Task<IActionResult> FilterSession([FromQuery] string? officeIds)
+        {
+            try
+            {
+                IQueryable<FormSubmission> query = _context.FormSubmissions;
+
+                // Apply filter ONLY if provided
+                if (!string.IsNullOrWhiteSpace(officeIds))
+                {
+                    var officeIdList = officeIds
+                        .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(x => x.Trim())
+                        .ToList();
+
+                    query = query.Where(s => s.OfficeId != null &&
+                                             officeIdList.Any(id =>
+                                                 ("," + s.OfficeId + ",").Contains("," + id + ",")
+                                             ));
+                }
+
+                // Always limit results (important for performance)
+                var sessions = await query
+                    .OrderByDescending(s => s.CreatedAt) // latest first
+                    .Take(100)
+                    .ToListAsync();
+
+                return Ok(sessions);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error filtering sessions", error = ex.Message });
             }
         }
 

@@ -2,6 +2,7 @@
 using FormAutomationApi.Model;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Org.BouncyCastle.Crypto;
 
 namespace FormAutomationApi.Controllers
 {
@@ -55,16 +56,18 @@ namespace FormAutomationApi.Controllers
         }
 
         [HttpGet("archvied")]
-        public async Task<IActionResult> GetArchived() {
+        public async Task<IActionResult> GetArchived()
+        {
             try
             {
                 var archivedDocuments = await _dbContext.ArchiveForms.ToListAsync();
                 return Ok(archivedDocuments);
-            }catch(Exception ex)
+            }
+            catch (Exception ex)
             {
                 return StatusCode(500, ex.Message);
             }
-           
+
         }
 
         //post archived forms with multiple faciliies
@@ -76,9 +79,9 @@ namespace FormAutomationApi.Controllers
                 var newForms = new ArchiveForm
                 {
                     FormIds = archiveRequest.FormIds,
-                    FacilityIds=archiveRequest.FacilityIds,
-                    Label=archiveRequest.Label,
-                    ArchivedBy=archiveRequest.ArchivedBy,
+                    FacilityIds = archiveRequest.FacilityIds,
+                    Label = archiveRequest.Label,
+                    ArchivedBy = archiveRequest.ArchivedBy,
 
                 };
 
@@ -95,19 +98,16 @@ namespace FormAutomationApi.Controllers
         [HttpGet("archived/{facilityId}")]
         public async Task<IActionResult> GetByFacility(int facilityId)
         {
+
             try
             {
                 var result = await _dbContext.ArchiveForms
-                    .FromSqlRaw(@"
-                SELECT *
-                FROM ArchiveForms
-                WHERE EXISTS (
-                    SELECT 1
-                    FROM OPENJSON(FacilityIds)
-                    WHERE value = {0}
-                )
-            ", facilityId)
-                    .ToListAsync();
+     .FromSqlRaw(@"
+        SELECT *
+        FROM archiveforms
+        WHERE JSON_CONTAINS(FacilityIds, CAST({0} AS JSON))
+    ", facilityId)
+     .ToListAsync();
 
                 return Ok(result);
             }
@@ -117,6 +117,20 @@ namespace FormAutomationApi.Controllers
             }
         }
 
+        [HttpGet("archived/form")]
+        public async Task<IActionResult> GetFormsByOfficeId([FromQuery] string ids)
+        {
+            try
+            {
+                var formIds = ids.Split(',').Select(int.Parse).ToList();
+                var result = await _dbContext.DocumentVersions.Where(dv => formIds.Contains(dv.DocumentVersionId)).ToListAsync();
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
     }
 }
         public class FormInput
