@@ -88,7 +88,7 @@ namespace FormAutomationApi.Controllers
         [HttpPost("twilio-send")]
         public async Task<IActionResult> SendSms([FromBody] SendForm request)
         {
-            if (string.IsNullOrEmpty(request.Phone) || string.IsNullOrEmpty(request.FormLink))
+            if (string.IsNullOrEmpty(request.PhoneNumber) || string.IsNullOrEmpty(request.FormUrl))
             {
                 return BadRequest("Phone or FormLink missing");
             }
@@ -98,7 +98,7 @@ namespace FormAutomationApi.Controllers
                 var submission = new FormSubmission
                 {
                     CreatedAt = DateTime.Now,
-                    PatientId = int.TryParse(request.patientId, out var pid) ? pid : null,
+                    PatientId = int.TryParse(request.PatientId, out var pid) ? pid : null,
                     ExpiresAt = DateTime.Now.AddDays(7),
                     FormIds = request.FormLink,
                     SenderId = 0 , 
@@ -116,7 +116,7 @@ namespace FormAutomationApi.Controllers
                 string formLink = $"{baseUrl}/subforms?token={submission.SessionId}";
 
 
-                var sent = await _twilioService.SendFormLink(request.Phone, formLink);
+                var sent = await _twilioService.SendFormLink(request.PhoneNumber, formLink);
                 return Ok(new { message = "SMS sent successfully", sent });
             }
             catch (Exception ex)
