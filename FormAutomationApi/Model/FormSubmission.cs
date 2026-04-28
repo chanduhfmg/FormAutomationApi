@@ -22,6 +22,9 @@ namespace FormAutomationApi.Model
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        public DateTime? CompletedAt { get; set; }
+
+        public DateTime? ComplianceExpiresAt { get; set; }
     }
 
     public enum SubmissionStatus
