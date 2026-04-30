@@ -52,9 +52,13 @@ namespace FormAutomationApi.Controllers
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var lowerSearch = search.ToLower();
+                bool isNumber = int.TryParse(search, out int searchId);
 
                 query = query.Where(o =>
                     o.OfficeName.ToLower().Contains(lowerSearch) ||
+
+                    //search by id
+                    (isNumber && o.OfficeId==searchId) ||
 
                     _context.DocumentVersionOffices
                         .Where(dvo => dvo.OfficeId == o.OfficeId)
@@ -117,7 +121,7 @@ namespace FormAutomationApi.Controllers
                 {
                     CreatedAt = DateTime.Now,
                     PatientId = int.TryParse(request.PatientId, out var pid) ? pid : null,
-                    ExpiresAt = DateTime.Now.AddDays(7),
+                    ExpiresAt = DateTime.Now.AddDays(14),
                     FormIds = request.FormLink,
                     SenderId = 0 , 
                     OfficeId = request.officeId
@@ -223,6 +227,116 @@ namespace FormAutomationApi.Controllers
             {
                 return BadRequest(new { message = "Invalid session ID format" });
 
+            }
+        }
+
+        [HttpPost("send-expired-forms")]
+        public async Task<IActionResult> SendComplianceReminder([FromBody] FilterForms request)
+        {
+            if (string.IsNullOrWhiteSpace(request.MobileNumber))
+                return BadRequest(new { message = "PhoneNumber is required" });
+
+            try
+            {
+                // STEP 1: Get all form IDs mapped to this facility
+                var allArchiveForms = await _context.ArchiveForms.ToListAsync();
+
+
+
+                int facilityId = int.Parse(request.FacilityId);
+
+                var facilityFormIds = allArchiveForms
+                    .Where(a => a.FacilityIds != null && a.FacilityIds.Contains(facilityId))
+                    .SelectMany(a => a.FormIds ?? new List<int>())
+                    .Select(id => id.ToString())
+                    .Distinct()
+                    .ToHashSet();
+
+                Console.WriteLine(string.Join(",",facilityFormIds));
+
+                if (!facilityFormIds.Any())
+                    return Ok(new { message = "No forms configured for this facility" });
+
+                var current = new DateTime(2028, 4, 1);
+
+                // STEP 2: Get expired submissions for this patient
+                var expiredSubmissions = await _context.FormSubmissions
+                    .Where(s =>
+                        s.PatientId == request.PatientId &&
+                        s.ComplianceExpiresAt != null &&
+                        s.ComplianceExpiresAt <= current)
+                    .ToListAsync();
+
+                Console.WriteLine($"Expired Submissions Count: {expiredSubmissions.Count}");
+
+                foreach (var s in expiredSubmissions)
+                {
+                    Console.WriteLine(
+                        $"SessionId: {s.SessionId} | PatientId: {s.PatientId} | " +
+                        $"ComplianceExpiresAt: {s.ComplianceExpiresAt} | FormIds: {s.FormIds}"
+                    );
+                }
+
+
+                if (!expiredSubmissions.Any())
+                    return Ok(new { message = "No expired compliance forms for this patient" });
+
+                // STEP 3: Collect expired form IDs
+                var expiredFormIds = expiredSubmissions
+                    .SelectMany(s =>
+                        s.FormIds
+                            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(id =>id.Trim()))
+                    .Distinct()
+                    .ToHashSet();
+
+                Console.WriteLine($"this is the expired  formid{string.Join(",",expiredFormIds)}");
+
+                // STEP 4: Intersect
+                //var formsToSend = facilityFormIds
+                //    .Intersect(expiredFormIds)
+                //    .ToList();
+
+                //Console.WriteLine($"These are the forms to send: {string.Join(",", formsToSend)}");
+
+
+                //if (!formsToSend.Any())
+                //    return Ok(new { message = "No overlapping expired forms for this facility and patient" });
+
+                var sessionRequest = new FormSubmission
+                {
+                    PatientId = request.PatientId,
+                    FormIds = string.Join(",",expiredFormIds),
+                    CreatedAt=DateTime.UtcNow,
+                    OfficeId=request.FacilityId,
+                    Status=SubmissionStatus.Pending,
+                    ExpiresAt=DateTime.UtcNow.AddDays(14),
+                    SessionId=Guid.NewGuid()
+
+                };
+
+                await _context.FormSubmissions.AddAsync(sessionRequest);
+                await _context.SaveChangesAsync();
+             
+
+
+                // STEP 5: Build URL with form IDs and send — no session created
+                var baseUrl = _config["Frontend:FormsUrl"];
+                var formLink = $"{baseUrl}/subforms?token={sessionRequest.SessionId}";
+
+                var sent = await _twilioService.SendFormLink(request.MobileNumber, formLink);
+
+                return Ok(new
+                {
+                    message = "Compliance reminder sent",
+                    formLink,
+                    formsSent = expiredFormIds,
+                    //smsSent = sent
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error sending compliance reminder", error = ex.Message });
             }
         }
 
@@ -336,7 +450,9 @@ namespace FormAutomationApi.Controllers
 
 
     }
-}  
+}
+
+
 
 public interface RequestSessionBody
 {

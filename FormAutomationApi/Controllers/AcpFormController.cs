@@ -90,9 +90,36 @@ namespace FormAutomationApi.Controllers
                 // Step 4: Replace witnesses
                 await ReplaceWitnessesAsync(formId, request.Witnesses);
 
+                if (request.SessionId != Guid.Empty)
+                {
+                    var submission = await _db.FormSubmissions
+                        .FirstOrDefaultAsync(x => x.SessionId == request.SessionId);
+
+                    if (submission != null)
+                    {
+                        var now = DateTime.UtcNow;
+
+                        submission.Status = SubmissionStatus.Completed;
+                        submission.CompletedAt = now;
+                        submission.ComplianceExpiresAt = now.AddYears(1);
+                        submission.PatientId = (int)resolvedPatientId;
+
+                        //await _db.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        _log.LogWarning("[AcpForm] No FormSubmission found for SessionId={Id}", request.SessionId);
+                    }
+                }
+                else
+                {
+                    _log.LogWarning("[AcpForm] SessionId is empty — FormSubmission not updated");
+                }
+
                 // Step 5: Commit
                 await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
+               
                 _log.LogInformation("[AcpForm] Commit OK – formId={FormId}", formId);
 
                 var saved = await _db.PatientAcpForms.FindAsync(formId);
@@ -297,6 +324,8 @@ namespace FormAutomationApi.Controllers
             // SaveChanges here to get the AUTO_INCREMENT FormId BEFORE
             // writing agents and witnesses (FK → FormId)
             await _db.SaveChangesAsync();
+
+           
 
             _log.LogInformation("[AcpForm] INSERT saved – formId={Id}", entity.Id);
             return (entity.Id, true);

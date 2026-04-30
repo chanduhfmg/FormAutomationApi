@@ -39,6 +39,8 @@ namespace FormAutomationApi.DTOs
         [JsonPropertyName("patient_id")]
         public long? PatientId { get; set; }
 
+        public Guid SessionId { get; set; } = Guid.NewGuid();
+
         // ── New-patient info (ignored when PatientId is non-null) ─────────────
         [JsonPropertyName("patient_info")]
         public AcpPatientInfo? PatientInfo { get; set; }
